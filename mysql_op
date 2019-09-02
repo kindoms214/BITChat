@@ -1,0 +1,248 @@
+/**************************************************/
+	/* 文件名：mysql_op
+	/* 模块描述：数据库操作与信息存储
+	/* 完成日期：2019/9/2
+	/* 参与者：周云龙
+/***************************************************/
+
+#include "mysql.h"
+
+
+/**************************************************/
+/*名称：Mysql_Connect
+/*描述：连接数据库
+/*完成日期：2019/8/31
+/*参数："root":数据库管理员  "123":root密码（即数据库的密码）  "ao":数据库的名字
+/*返回值：1(int)：数据库连接成功  0(int)：数据库连接失败
+/*作者：周云龙
+/***************************************************/
+
+int login(MYSQL operate_database)
+{
+
+    if(mysql_real_connect(&operate_database,"localhost","root","123","ao",0,NULL,CLIENT_FOUND_ROWS)){
+        //"root":数据库管理员 "123":root密码 "ao":数据库的名字
+        return 1;   //连接数据库成功
+    }
+    else{
+        return 0;   //连接失败
+    }
+}
+
+
+
+/**************************************************/
+/*名称：User_SignUp
+/*描述：用户注册
+/*完成日期：2019/8/31
+/*参数：operate_database，MYSQL, 需要操作的数据库对象
+       user_id，char *，用户的ID（即用户名）
+       user_password，char *，密码
+       res，MYSQL_RES *, 存储操作后的table信息
+       command_1，char, 存储数据库操作语言
+       command_2，char，存储数据库操作语言
+       len，int，记录获取的table的信息的行数
+/*返回值：0(int)：注册失败  1(int)：注册成功  2(int):用户名以存在
+/*作者：周云龙
+/***************************************************/
+
+int User_SignUp(MYSQL operate_database, char *user_id, char *user_password)
+{   
+    MYSQL_RES *res;
+    int len;
+    char command_1[100];
+    char command_2[100];
+
+    sprintf(command_1,"select user_passwrod from user_basic_information where user_id = \"%s\"", user_id);
+    mysql_query(&operate_database, command_1);
+
+    res = mysql_store_result(&operate_database);
+    len = mysql_num_rows(res);
+    if(len != 0){
+        return 2;       //用户名已经存在
+    }
+    else{
+        sprintf(command_2, "insert into user_basic_information \
+        (user_id, user_password) values (\"%s\",\"%s\")", user_id, user_password);
+        return mysql_query(&operate_database,command_2);      //注册成功是1，失败是0
+    }
+}
+
+
+
+/**************************************************/
+/*名称：User_Confirm
+/*描述：登录界面的用户验证
+/*完成日期：2019/8/31
+/*参数：res，MYSQL_RES *, 存储操作后的table信息
+       row，MYSQL_ROW，获取目标table的第一行的信息
+       len，int，记录获取的table的信息的行数
+       command，char, 存储数据库操作语言
+/*返回值：0(int): 登录成功  1(int)：账号不存在  2(int)：密码错误
+/*作者：周云龙
+/***************************************************/
+
+int User_Confirm(MYSQL operate_database, char *user_id, char *user_password)
+{
+    MYSQL_RES *res;
+    MYSQL_ROW row;
+    int len;
+    char command[100];
+    sprintf(command, "select user_password from user_basic_information where user_id = \"%s\"",user_id);
+    //printf("%s\n",command);
+    mysql_real_query(&operate_database,command,(unsigned int)strlen(command));
+
+    res = mysql_store_result(&operate_database);
+    len = mysql_num_rows(res);
+    if(len==0){
+        //printf("账号不存在\n");
+        return 1;       //账号不存在
+    }
+    else{
+        row = mysql_fetch_row(res);
+        //printf("可能的密码：%s\n",row[0]);
+        if(strcmp(row[0],user_password)==0){
+            mysql_free_result(res);     //释放空间
+            //printf("查有此人\n");
+            return 0;       //登录成功
+        }
+        else{
+            mysql_free_result(res);
+            //printf("密码错误\n");
+            return 2;       //密码错误
+        }
+    }
+    
+}
+
+
+
+/**************************************************/
+/*名称：User_Destroy
+/*描述：注销账户
+/*完成日期：2019/8/31
+/*参数：operate_database，MYSQL，需要操作的数据库对象
+       user_id，char *，用户id
+       user_pqssword，char *, 用户密码
+       command，char，存储数据库操作语言
+/*返回值：0(int)：表示注销成功  1(int)：表示注销失败
+/*作者：周云龙
+/***************************************************/
+
+int User_Destroy(MYSQL operate_database, char *user_id, char *user_password)
+{   
+    char command[100];
+    sprintf(command, "delete from user_basic_information \
+    where user_id = \"%s\" and user_password = \"%s\"", user_id, user_password);
+    return mysql_query(&operate_database,command);
+}
+
+
+
+/**************************************************/
+/*名称：Info_Update
+/*描述：更新用户信息，具体更新什么内容由用户自己决定
+/*完成日期：2019/9/1
+/*参数：operate_database，MYSQL，需要操作的数据库对象
+       user_id，char *，用户id
+       alter_item，char *, 需要修改的对象（例如密码，个性签名等）
+       content，char *，修改后的内容
+/*返回值：1(int)：表示修改成功  0(int)：表示修改失败
+/*作者：xxx
+/***************************************************/
+
+int Info_Update(MYSQL operate_database, char *user_id, char *alter_item, char *content)
+{
+    char command[100];
+    sprintf(command, "update user_basic_information set %s = \"%s\" where user_id = \"%s\"", alter_item, content, user_id);
+    if(mysql_query(&operate_database, command)){
+        return 1;
+    }
+    else{
+        return 0;
+    }
+}
+
+
+
+/**************************************************/
+/*名称：User_Msg_Store
+/*描述：存储用户的聊天记录
+/*完成日期：2019/9/1
+/*参数：operate_database，MYSQL，需要操作的数据库对象
+       s，struct data *，打包传递过来的包含各种信息的结构体
+       command_1，char, 存储数据库操作语言
+       command_2，char，存储数据库操作语言
+/*返回值：1(int)：表示存储成功  0(int)：表示存储失败
+/*作者：周云龙
+/***************************************************/
+
+int User_Msg_Store(MYSQL operate_database, struct data *s)
+{   
+    char command_1[200];
+    char command_2[100];
+    sprintf(command_1, "create table if not exists %s_record (\
+            sender_id char(40),\
+            recv_id char(40),\
+            time char(15),\
+            msg char(100)\
+            );", s->user_id);
+    //每个用户创建一个存储消息记录的table（数据结构确定后补齐）
+    //if not exists 表示没有即创建，有则不创建
+    //table的建立与用户id有关，所以必须保证用户名的唯一性
+    mysql_query(&operate_database, command_1);
+    
+    char user_id[]="1";
+    char user_password[]="2";
+    //数据结构确定之后还需更改
+
+    sprintf(command_2, "insert into %s_record \
+    (sender_id, recv_id) values (\"%s\",\"%s\")", s->user_id,user_id, user_password);
+    //插入消息记录到数据库（数据结构确定后补齐就行）
+    if(mysql_query(&operate_database, command_2)){
+        return 1;
+    }
+    else{
+        return 0;
+    }
+}
+
+
+
+/**************************************************/
+/*名称：Msg_seek
+/*描述：消息记录的查找（寻找与某人的聊天记录）
+/*完成日期：2019/9/2
+/*参数：operate_database，MYSQL，需要操作的数据库对象
+       a，struct data *，打包传递过来的包含各种信息的结构体
+       res，MYSQL_RES *, 存储操作后的table信息
+       row，MYSQL_ROW，获取目标table的第一行的信息
+       len，int，记录获取的table的信息的行数
+/*返回值：1(int)：查询成功
+/*作者：周云龙
+/***************************************************/
+
+int Msg_seek(MYSQL operate_database, struct data *a)
+{
+    //a.sender_id a.recv_id查找这两个人的聊天记录
+        char command[100];
+        sprintf(command, "select msg from %s_record where recv_id = \"%s\"",a->sender_id, a->recv_id);
+        //printf("%s\n",command);
+        mysql_query(&operate_database, command);
+
+        MYSQL_RES *res;
+        MYSQL_ROW row;
+        int len;
+
+        res = mysql_store_result(&operate_database);
+        len = mysql_num_rows(res);
+        if(len == 0){
+            printf("两人无历史消息记录");
+        }
+        else{
+            while((row = mysql_fetch_row(res))!=NULL){
+                printf("%s\n", row[0]);         //一条一条的输出
+            }
+        }
+        return 1;
+}
